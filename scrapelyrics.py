@@ -1,13 +1,14 @@
-"""Song Lyric Collector
-scrapes the website metrolyrics.com for song lyrics and compiles corpora with lyrics from each genre of music
+"""Song Lyric Generator
 """
 
 from lxml import html
-import requests
+import requests, argparse
 
-"""Compile a corpus of lyrics for a certain genre of music
-"""
 def compile_corpus_for_genre(genre):
+    """
+    Scrapes the website metrolyrics.com for song lyrics and compiles corpora with lyrics from each genre of music.
+    Compile a corpus of lyrics for a certain genre of music
+    """
     f = open(genre+'.txt','w')
     page = requests.get('http://www.metrolyrics.com/top100-'+genre+'.html')
     tree = html.fromstring(page.text)
@@ -20,7 +21,18 @@ def compile_corpus_for_genre(genre):
             f.write(verse.encode('utf-8'))
     f.close()
 
+def create_ngram_model(filename):
+    """
+    Accumulate trigram and unigram counts using a corpus of lyrics from a certain genre of music
+    """
+    print filename
+
 if __name__=='__main__':
-    genres = ['pop','rock','hiphop']
-    for genre in genres:
-        compile_corpus_for_genre(genre)
+    genres = ['rock','hiphop','pop']
+    for g in genres:
+        compile_corpus_for_genre(g)
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-generate', type = str, required = False, choices = ['rock','hiphop','pop'], help = 'generate genre lyrics (genre)')
+    args = parser.parse_args()
+    if args.generate:
+        create_ngram_model(args.generate+'.txt')
