@@ -4,8 +4,10 @@
 from lxml import html
 from collections import defaultdict
 import requests, argparse, string, random
+import os.path
 
 START_TAG = "<s>"
+END_TAG = "</s>"
 VERSE_LENGTH = 10
 
 def compile_corpus_for_genre(genre):
@@ -41,6 +43,8 @@ def create_ngram_model(filename):
                 countsdict[START_TAG+" "+words[i].strip()]+=1.0
             elif i >= 1:
                 countsdict[words[i-1].strip()+" "+words[i].strip()]+=1.0
+                if i == len(words)-1:
+                    countsdict[words[i].strip()+" "+END_TAG]+=1.0
             # trigrams
             if i >= 2:
                 countsdict[words[i-2].strip()+" "+words[i-1].strip()+" "+words[i].strip()]+=1.0
@@ -52,33 +56,40 @@ def generate_lyrics(model):
     """
     # Choose a random word to start the lyric. Choose from the set of words that follow a start tag.
     start = random.choice([ngram for ngram in model.keys() if START_TAG in ngram.split()]).split()[1]
-    unigrams = [ngram for ngram in model.keys() if len(ngram.split()) == 1]
+    unigrams = [unigram for unigram in model.keys() if len(unigram.split()) == 1]
+    totalUnigramCount = 0.0
+    for unigram in unigrams:
+        totalUnigramCount += model[unigram]
     sequence = start
-    for i in range(1, VERSE_LENGTH):
+    i = 1
+    while(1):
         # Choose the next word in the generated sequence based on bigram probabilities
         nextword = ""
-        bestBigramProb = 0.0
+        bestProb = 0.0
         for token in unigrams:
             if sequence.split()[i-2]+" "+sequence.split()[i-1]+" "+token in model.keys():
                 prob = model[sequence.split()[i-2]+" "+sequence.split()[i-1]+" "+token]/model[sequence.split()[i-1]+" "+token]
             elif sequence.split()[i-1]+" "+token in model.keys():
                 prob = model[sequence.split()[i-1]+" "+token]/model[sequence.split()[i-1]]
             else:
-                prob = model[token]/sum(model.values())
+                prob = model[token]/totalUnigramCount
             
-            if prob > bestBigramProb:
-                bestBigramProb = prob
+            if prob > bestProb:
+                bestProb = prob
                 nextword = token
+        # Exit the loop when the probability of ending the verse is greater than the probability of adding another word
+        if model[sequence.split()[i-1]+" "+END_TAG]/model[sequence.split()[i-1]] > bestProb:
+            break
         sequence = sequence+" "+nextword
+        i += 1
     print sequence
 
 if __name__=='__main__':
-    #genres = ['rock','hiphop','pop']
-    #for g in genres:
-    #    compile_corpus_for_genre(g)
     parser = argparse.ArgumentParser()
-    parser.add_argument('-generate', type = str, required = False, choices = ['rock','hiphop','pop'], help = 'generate genre lyrics (genre)')
+    parser.add_argument('-generate', type = str, required = False, choices = ['rock','hiphop','pop'], help = 'generate genre lyrics (rock, hiphop, pop)')
     args = parser.parse_args()
     if args.generate:
+        if not os.path.exists(args.generate+'.txt'):
+            compile_corpus_for_genre(args.generate)
         model = create_ngram_model(args.generate+'.txt')
         generate_lyrics(model)
