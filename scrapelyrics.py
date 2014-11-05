@@ -1,6 +1,5 @@
 """Song Lyric Generator
-"""
-
+""" 
 from lxml import html
 from collections import defaultdict
 import requests, argparse, string, random
@@ -27,6 +26,57 @@ def compile_corpus_for_genre(genre):
             f.write(verse.encode('utf-8')+'\n')
     f.close()
 
+def generate_key(seq):
+    key = ""
+    for item in seq:
+        key += item + " "
+    
+    return key
+
+def classify(models, filename):
+    maxprob = 0 
+    
+    #find p(lyrics) for each model
+    for model in models:
+        totalprob = 0
+        backpointers = ['<s>','<s>','<s>']
+        for line in open(filename):
+            line = line.split().lower()
+            
+            #for each word in the file, push it into the backpointers list - everything moves one to the left
+            for word in line:
+                prob = 0
+                for i in range(len(backpointers) - 1):
+                    backpointers[len(backpointers) - i - 2] = backpointers[len(backpointers) - i - 1]
+                    
+                backpointers[len(backpointers)-1] = word
+                
+                
+                #use interpolation to compute probabilities of n-grams found in the backpointers list
+                j = 0
+                l = .9
+                while j < len(backpointers):
+                    key = generate_key(backpointers[j:len(backpointers)-1])
+                    prob += l*model[key]
+                    j+=1
+                    l*=.1
+                
+                #if no n-gram matches, we're looking at an unkown word
+                if prob == 0:
+                    prob += l *model['<UNK>']
+                
+                totalprob += prob
+        
+        #update the best-performing model
+        if totalprob > maxprob:
+            maxprob = totalprob
+            best_fit = model
+        
+        return models.index(best_fit)
+                
+            
+            
+    
 def create_ngram_model(filename):
     """
     Accumulate trigram, bigram, and unigram counts using a corpus of lyrics from a certain genre of music
@@ -87,9 +137,23 @@ def generate_lyrics(model):
 if __name__=='__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-generate', type = str, required = False, choices = ['rock','hiphop','pop'], help = 'generate genre lyrics (rock, hiphop, pop)')
+    parser.add_argument('-classify', type = str, required = False,  help = 'classify the genre of an unlabeled set of lyrics')
     args = parser.parse_args()
     if args.generate:
         if not os.path.exists(args.generate+'.txt'):
             compile_corpus_for_genre(args.generate)
         model = create_ngram_model(args.generate+'.txt')
         generate_lyrics(model)
+    
+    if args.classify:
+        ROCK = create_ngram_model('rock.txt')
+        HIPHOP = create_ngram_model('hiphop.txt')
+        POP = create_ngram_model('pop.txt')
+        
+        genre_list = ['Rock', 'Hip Hop', 'Pop']
+        genre_model_list = [ROCK, HIPHOP, POP]
+        
+        
+        print "Lyrics classified as " + genre_list[classify(genre_model_list)] + "."
+            
+    
