@@ -15,15 +15,17 @@ def compile_corpus_for_genre(genre):
     Compile a corpus of lyrics for a certain genre of music
     """
     f = open(genre+'.txt','w')
-    page = requests.get('http://www.metrolyrics.com/top100-'+genre+'.html')
-    tree = html.fromstring(page.text)
-    songs = tree.xpath('//*[@class="song-link hasvidtoplyric"]/@href')
-    for song in songs:
-        lyric_page = requests.get(song)
-        song_tree = html.fromstring(lyric_page.text)
-        verses = song_tree.xpath('//*[@class="verse"]/text()')
-        for verse in verses:
-            f.write(verse.encode('utf-8')+'\n')
+    for i in range(5):
+        page = requests.get('http://genius.com/tags/'+genre+'/all?page='+str(i))
+        tree = html.fromstring(page.text)
+        songs = tree.xpath('//*[@class=" song_link"]/@href')
+        for song in songs:
+            lyric_page = requests.get(song)
+            song_tree = html.fromstring(lyric_page.text)
+            verses = song_tree.xpath('//*[@data-editorial-state="accepted"]/text()')
+            print len(verses)
+            for verse in verses:
+                f.write(verse.encode('utf-8')+'\n')
     f.close()
 
 def generate_key(seq):
