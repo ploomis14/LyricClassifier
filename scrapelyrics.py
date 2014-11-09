@@ -2,20 +2,26 @@
 """ 
 from lxml import html
 from collections import defaultdict
-import requests, argparse, string, random
+import nltk
+from nltk.corpus import cmudict
+import requests
+import argparse
+import string
+import random
 import os.path
 
 START_TAG = "<s>"
 END_TAG = "</s>"
-VERSE_LENGTH = 10
+CORPUS_SIZE = 4
+LINES_PER_VERSE = 4
 
 def compile_corpus_for_genre(genre):
     """
-    Scrapes the website metrolyrics.com for song lyrics and compiles corpora with lyrics from each genre of music.
+    Scrapes website for song lyrics and compiles corpora with lyrics from each genre of music.
     Compile a corpus of lyrics for a certain genre of music
     """
     f = open(genre+'.txt','w')
-    for i in range(5):
+    for i in range(CORPUS_SIZE):
         page = requests.get('http://genius.com/tags/'+genre+'/all?page='+str(i))
         tree = html.fromstring(page.text)
         songs = tree.xpath('//*[@class=" song_link"]/@href')
@@ -23,7 +29,6 @@ def compile_corpus_for_genre(genre):
             lyric_page = requests.get(song)
             song_tree = html.fromstring(lyric_page.text)
             verses = song_tree.xpath('//*[@data-editorial-state="accepted"]/text()')
-            print len(verses)
             for verse in verses:
                 f.write(verse.encode('utf-8')+'\n')
     f.close()
@@ -76,9 +81,6 @@ def classify(models, filename):
         
         return models.index(best_fit)
                 
-            
-            
-    
 def create_ngram_model(filename):
     """
     Accumulate trigram, bigram, and unigram counts using a corpus of lyrics from a certain genre of music
@@ -102,9 +104,9 @@ def create_ngram_model(filename):
                 countsdict[words[i-2].strip()+" "+words[i-1].strip()+" "+words[i].strip()]+=1.0
     return countsdict
 
-def generate_lyrics(model):
+def generate_line(model):
     """
-    Use an ngram model to generate lines of lyrics for a certain genre of music
+    Use an ngram model to generate a single line of lyrics for a certain genre of music
     """
     # Choose a random word to start the lyric. Choose from the set of words that follow a start tag.
     start = random.choice([ngram for ngram in model.keys() if START_TAG in ngram.split()]).split()[1]
@@ -134,27 +136,58 @@ def generate_lyrics(model):
             break
         sequence = sequence+" "+nextword
         i += 1
-    print sequence
+    return sequence
+
+def output_lyrics(model,filename):
+    """
+    Outputs verses to file (groups of four lines where the last word of two consecutive lines matches)
+    """
+    words = [token for token in model.keys() if len(token.split()) == 1]
+    pron_dict = cmudict.dict()
+    output_file = open(filename,'w')
+    previous_line = generate_line(model)
+    for i in range(LINES_PER_VERSE):
+        current_line = generate_line(model)
+        
+        # Exchange the last word of the current line for a word the rhymes with the previous line
+        if i%2 == 0:
+            prev_word = previous_line.rsplit(' ', 1)[1]
+            prev_pron = pron_dict[last_word.lower()][0]
+            
+            for word in words:
+                pron = pron_dict[word.lower()][0]
+                if pron[len(pron)-1] == prev_pron[len(prev_pron)-1]:
+                    output_file.write(current_line.rsplit(' ', 1)[0]+" "+word)
+                    break;
+        else:
+            output_file.write(current_line)
+
+        previous_line = current_line
+            
 
 if __name__=='__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('-generate', type = str, required = False, choices = ['rock','hiphop','pop'], help = 'generate genre lyrics (rock, hiphop, pop)')
+    parser.add_argument('-generate', type = str, required = False, choices = ['rock','rap','pop'], help = 'generate genre lyrics (rock, rap, pop)')
     parser.add_argument('-classify', type = str, required = False,  help = 'classify the genre of an unlabeled set of lyrics')
     args = parser.parse_args()
+
     if args.generate:
-        if not os.path.exists(args.generate+'.txt'):
+        if not os.path.exists(args.generate+'.txt') or os.path.getsize(args.generate+'.txt') == 0:
+            print "compiling "+args.generate+" corpus..."
             compile_corpus_for_genre(args.generate)
-        model = create_ngram_model(args.generate+'.txt')
-        generate_lyrics(model)
+        filename = args.generate+'.txt'
+        model = create_ngram_model(filename)
+        #generate_line(model)
+        print "generating "+args.generate+" lyrics..."
+        output_lyrics(model,'generate-'+args.generate+'.txt')
     
     if args.classify:
         ROCK = create_ngram_model('rock.txt')
-        HIPHOP = create_ngram_model('hiphop.txt')
+        HIPHOP = create_ngram_model('rap.txt')
         POP = create_ngram_model('pop.txt')
         
-        genre_list = ['Rock', 'Hip Hop', 'Pop']
-        genre_model_list = [ROCK, HIPHOP, POP]
-        
+        genre_list = ['Rock', 'Rap', 'Pop']
+        genre_model_list = [ROCK, RAP, POP]
         
         print "Lyrics classified as " + genre_list[classify(genre_model_list)] + "."
             
