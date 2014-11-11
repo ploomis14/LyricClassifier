@@ -13,7 +13,7 @@ import os.path
 START_TAG = "<s>"
 END_TAG = "</s>"
 CORPUS_SIZE = 4
-LINES_PER_VERSE = 4
+LINES_PER_VERSE = 6
 
 def compile_corpus_for_genre(genre):
     """
@@ -138,32 +138,41 @@ def generate_line(model):
         i += 1
     return sequence
 
+def rhyme(w, pos):
+    """
+    Given a word and its POS tag, return a rhyming word that has the same part of speech
+    """
+    entries = nltk.corpus.cmudict.entries()
+    syllables = [(word, syl) for word, syl in entries if word == w and pos == nltk.pos_tag([word])]
+    rhyme = ""
+    for (token, syllable) in syllables:
+        for word, pron in entries:
+            if pron[-2:] == syllable[-2:]:
+                rhyme = word
+                break;
+    return rhyme
+
 def output_lyrics(model,filename):
     """
     Outputs verses to file (groups of four lines where the last word of two consecutive lines matches)
     """
-    words = [token for token in model.keys() if len(token.split()) == 1]
-    pron_dict = cmudict.dict()
     output_file = open(filename,'w')
-    previous_line = generate_line(model)
-    for i in range(LINES_PER_VERSE):
+    previous_line = ""
+    
+    for i in range(1,LINES_PER_VERSE):
         current_line = generate_line(model)
-        
+        output = current_line+"\n"
         # Exchange the last word of the current line for a word the rhymes with the previous line
         if i%2 == 0:
             prev_word = previous_line.rsplit(' ', 1)[1]
-            prev_pron = pron_dict[last_word.lower()][0]
-            
-            for word in words:
-                pron = pron_dict[word.lower()][0]
-                if pron[len(pron)-1] == prev_pron[len(prev_pron)-1]:
-                    output_file.write(current_line.rsplit(' ', 1)[0]+" "+word)
-                    break;
-        else:
-            output_file.write(current_line)
-
+            pos = nltk.pos_tag([prev_word])
+            rhyme_word = rhyme(prev_word,pos)
+            if len(rhyme_word) > 0:
+                output = current_line.rsplit(' ', 1)[0]+" "+rhyme_word+"\n"
+        
+        print output
         previous_line = current_line
-            
+    output_file.close()
 
 if __name__=='__main__':
     parser = argparse.ArgumentParser()
