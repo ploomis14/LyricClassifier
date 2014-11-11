@@ -9,18 +9,40 @@ import argparse
 import string
 import random
 import os.path
+import re
 
 START_TAG = "<s>"
 END_TAG = "</s>"
 CORPUS_SIZE = 4
 LINES_PER_VERSE = 6
 
+#approximates the number of syllables in a word
+def approx_nsyl(word):  #Credit to Danielle Sucher - http://www.daniellesucher.com/2012/04/nantucket-an-accidental-limerick-detector/
+    digraphs = ["ai", "au", "ay", "ea", "ee", "ei", "ey", "oa", "oe", "oi", "oo", "ou", "oy", "ua", "ue", "ui"]
+    # Ambiguous, currently split: ie, io
+    # Ambiguous, currently kept together: ui
+    digraphs = set(digraphs)
+    count = 0
+    array = re.split("[^aeiouy]+", word.lower())
+    for i, v in enumerate(array):
+        if len(v) > 1 and v not in digraphs:
+            count += 1
+        if v == '':
+            del array[i]
+    count += len(array)
+    if re.search("(?&lang;=\w)(ion|ious|(?&lang;!t)ed|es|[^lr]e)(?![a-z']+)", word.lower()):
+        count -= 1
+    if re.search("'ve|n't", word.lower()):
+        count += 1
+    return count
+
+
 def compile_corpus_for_genre(genre):
     """
     Scrapes website for song lyrics and compiles corpora with lyrics from each genre of music.
     Compile a corpus of lyrics for a certain genre of music
     """
-    f = open(genre+'.txt','w')
+    f = open(genre+'train.txt','w')
     for i in range(CORPUS_SIZE):
         page = requests.get('http://genius.com/tags/'+genre+'/all?page='+str(i))
         tree = html.fromstring(page.text)
@@ -30,8 +52,28 @@ def compile_corpus_for_genre(genre):
             song_tree = html.fromstring(lyric_page.text)
             verses = song_tree.xpath('//*[@data-editorial-state="accepted"]/text()')
             for verse in verses:
-                f.write(verse.encode('utf-8')+'\n')
+                if verse.strip("[]") == verse:  #skip annotations like "[Chorus 1]" and "[Sample: <song>]"                    
+                    f.write(verse.encode('utf-8')+'\n')
+    
+    
     f.close()
+    create_test_data(genre, CORPUS_SIZE)
+    
+def create_test_data(genre, page):
+    i = 0
+    page = requests.get('http://genius.com/tags/'+genre+'/all?page='+str(page))
+    tree = html.fromstring(page.text)
+    songs = tree.xpath('//*[@class=" song_link"]/@href')
+    for song in songs:
+        f = open(genre + "test%s.txt" % str(i), 'w')
+        lyric_page = requests.get(song)
+        song_tree = html.fromstring(lyric_page.text)
+        verses = song_tree.xpath('//*[@data-editorial-state="accepted"]/text()')
+        for verse in verses:
+            if verse.strip("[]") == verse:  #skip annotations like "[Chorus 1]" and "[Sample: <song>]"                    
+                f.write(verse.encode('utf-8')+'\n')
+        i+=1
+        f.close()
 
 def generate_key(seq):
     key = ""
@@ -49,6 +91,7 @@ def classify(models, filename):
         backpointers = ['<s>','<s>','<s>']
         for line in open(filename):
             line = line.split().lower()
+            line.append(END_TAG)
             
             #for each word in the file, push it into the backpointers list - everything moves one to the left
             for word in line:
@@ -73,7 +116,12 @@ def classify(models, filename):
                     prob += l *model['<UNK>']
                 
                 totalprob += prob
-        
+            
+            #end of a line gets a start of sentence tag
+            for i in range(len(backpointers) - 1):                    
+                backpointers[len(backpointers) - i - 2] = backpointers[len(backpointers) - i - 1]      
+            backpointers[len(backpointers)-1] = '<s>'
+            
         #update the best-performing model
         if totalprob > maxprob:
             maxprob = totalprob
@@ -102,6 +150,9 @@ def create_ngram_model(filename):
             # trigrams
             if i >= 2:
                 countsdict[words[i-2].strip()+" "+words[i-1].strip()+" "+words[i].strip()]+=1.0
+                if i == len(words)-1:
+                    countsdict[words[i-1].strip()+" "+words[i].strip()+" "+END_TAG]+=1.0
+                
     return countsdict
 
 def generate_line(model):
@@ -191,13 +242,14 @@ if __name__=='__main__':
         output_lyrics(model,'generate-'+args.generate+'.txt')
     
     if args.classify:
-        ROCK = create_ngram_model('rock.txt')
-        HIPHOP = create_ngram_model('rap.txt')
-        POP = create_ngram_model('pop.txt')
+        ROCK = create_ngram_model('rocktrain.txt')
+        RAP = create_ngram_model('raptrain.txt')
+        POP = create_ngram_model('poptrain.txt')
         
         genre_list = ['Rock', 'Rap', 'Pop']
         genre_model_list = [ROCK, RAP, POP]
         
-        print "Lyrics classified as " + genre_list[classify(genre_model_list)] + "."
+
+        print "Lyrics classified as " + genre_list[classify(genre_model_list, args.classify)] + "."
             
     
