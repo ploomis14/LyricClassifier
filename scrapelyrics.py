@@ -1,5 +1,5 @@
 """Song Lyric Generator
-""" 
+    """
 from lxml import html
 from collections import defaultdict
 import nltk
@@ -39,9 +39,9 @@ def approx_nsyl(word):  #Credit to Danielle Sucher - http://www.daniellesucher.c
 
 def compile_corpus_for_genre(genre):
     """
-    Scrapes website for song lyrics and compiles corpora with lyrics from each genre of music.
-    Compile a corpus of lyrics for a certain genre of music
-    """
+        Scrapes website for song lyrics and compiles corpora with lyrics from each genre of music.
+        Compile a corpus of lyrics for a certain genre of music
+        """
     f = open(genre+'train.txt','w')
     for i in range(CORPUS_SIZE):
         page = requests.get('http://genius.com/tags/'+genre+'/all?page='+str(i))
@@ -52,13 +52,13 @@ def compile_corpus_for_genre(genre):
             song_tree = html.fromstring(lyric_page.text)
             verses = song_tree.xpath('//*[@data-editorial-state="accepted"]/text()')
             for verse in verses:
-                if verse.strip("[]") == verse:  #skip annotations like "[Chorus 1]" and "[Sample: <song>]"                    
+                if verse.strip("[]") == verse:  #skip annotations like "[Chorus 1]" and "[Sample: <song>]"
                     f.write(verse.encode('utf-8')+'\n')
     
     
     f.close()
     create_test_data(genre, CORPUS_SIZE)
-    
+
 def create_test_data(genre, page):
     i = 0
     page = requests.get('http://genius.com/tags/'+genre+'/all?page='+str(page))
@@ -70,7 +70,7 @@ def create_test_data(genre, page):
         song_tree = html.fromstring(lyric_page.text)
         verses = song_tree.xpath('//*[@data-editorial-state="accepted"]/text()')
         for verse in verses:
-            if verse.strip("[]") == verse:  #skip annotations like "[Chorus 1]" and "[Sample: <song>]"                    
+            if verse.strip("[]") == verse:  #skip annotations like "[Chorus 1]" and "[Sample: <song>]"
                 f.write(verse.encode('utf-8')+'\n')
         i+=1
         f.close()
@@ -83,22 +83,24 @@ def generate_key(seq):
     return key
 
 def classify(models, filename):
-    maxprob = 0 
-    
+    maxprob = 0.0
+    best_fit = {}
     #find p(lyrics) for each model
     for model in models:
-        totalprob = 0
+        #print model
+        totalprob = 0.0
         backpointers = ['<s>','<s>','<s>']
         for line in open(filename):
-            line = line.split().lower()
+            line = line.lower().split()
             line.append(END_TAG)
             
             #for each word in the file, push it into the backpointers list - everything moves one to the left
             for word in line:
-                prob = 0
+                word = word.strip('()')
+                prob = 0.0
                 for i in range(len(backpointers) - 1):
-                    backpointers[len(backpointers) - i - 2] = backpointers[len(backpointers) - i - 1]
-                    
+                    backpointers[i] = backpointers[i+1]
+                
                 backpointers[len(backpointers)-1] = word
                 
                 
@@ -106,59 +108,89 @@ def classify(models, filename):
                 j = 0
                 l = .9
                 while j < len(backpointers):
-                    key = generate_key(backpointers[j:len(backpointers)-1])
-                    prob += l*model[key]
+                    key = generate_key(backpointers[j:len(backpointers)])
+                    #print key
+                    prob += l*model[key.strip()]
+                    #print key
+                    #print model[key.strip()]
                     j+=1
                     l*=.1
                 
                 #if no n-gram matches, we're looking at an unkown word
                 if prob == 0:
-                    prob += l *model['<UNK>']
+                    prob += .0000000001
                 
                 totalprob += prob
             
             #end of a line gets a start of sentence tag
-            for i in range(len(backpointers) - 1):                    
-                backpointers[len(backpointers) - i - 2] = backpointers[len(backpointers) - i - 1]      
+            for i in range(len(backpointers) - 1):
+                backpointers[i] = backpointers[i+1]
             backpointers[len(backpointers)-1] = '<s>'
-            
+        
         #update the best-performing model
+        #print totalprob
         if totalprob > maxprob:
             maxprob = totalprob
             best_fit = model
-        
-        return models.index(best_fit)
-                
+    
+    if best_fit == {}:
+        return 0
+    return models.index(best_fit)
+
 def create_ngram_model(filename):
     """
-    Accumulate trigram, bigram, and unigram counts using a corpus of lyrics from a certain genre of music
-    Returns a dictionary containing the ngram counts collected from the corpus file
-    """
+        Accumulate trigram, bigram, and unigram counts using a corpus of lyrics from a certain genre of music
+        Returns a dictionary containing the ngram counts collected from the corpus file
+        """
     countsdict = defaultdict(float)
+    unigrams = 0
+    bigrams = 0
+    trigrams = 0
     for line in open(filename):
+        line = line.lower()
         words = line.split()
         for i in range(len(words)):
             # unigrams
+            words[i] = words[i].strip('?.,/()!')
             countsdict[words[i].strip()]+=1.0
+            unigrams += 1
             # bigrams
             if i == 0:
                 countsdict[START_TAG+" "+words[i].strip()]+=1.0
+                bigrams+=1
+        
             elif i >= 1:
                 countsdict[words[i-1].strip()+" "+words[i].strip()]+=1.0
+                bigrams+=1
+                
                 if i == len(words)-1:
                     countsdict[words[i].strip()+" "+END_TAG]+=1.0
+                    bigrams+=1
+            
             # trigrams
             if i >= 2:
                 countsdict[words[i-2].strip()+" "+words[i-1].strip()+" "+words[i].strip()]+=1.0
+                trigrams+=1
                 if i == len(words)-1:
                     countsdict[words[i-1].strip()+" "+words[i].strip()+" "+END_TAG]+=1.0
-                
+                    trigrams+=1
+    #normalize the counts
+    for key in countsdict:
+        #print key
+        if len(key.split())==1:
+            countsdict[key] /= unigrams
+        if len(key.split())==2:
+            countsdict[key] /= bigrams
+        if len(key.split())==3:
+            countsdict[key] /= trigrams
+
+
     return countsdict
 
 def generate_line(model):
     """
-    Use an ngram model to generate a single line of lyrics for a certain genre of music
-    """
+        Use an ngram model to generate a single line of lyrics for a certain genre of music
+        """
     # Choose a random word to start the lyric. Choose from the set of words that follow a start tag.
     start = random.choice([ngram for ngram in model.keys() if START_TAG in ngram.split()]).split()[1]
     unigrams = [unigram for unigram in model.keys() if len(unigram.split()) == 1]
@@ -191,8 +223,8 @@ def generate_line(model):
 
 def rhyme(w, pos):
     """
-    Given a word and its POS tag, return a rhyming word that has the same part of speech
-    """
+        Given a word and its POS tag, return a rhyming word that has the same part of speech
+        """
     entries = nltk.corpus.cmudict.entries()
     syllables = [(word, syl) for word, syl in entries if word == w and pos == nltk.pos_tag([word])]
     rhyme = ""
@@ -205,8 +237,8 @@ def rhyme(w, pos):
 
 def output_lyrics(model,filename):
     """
-    Outputs verses to file (groups of four lines where the last word of two consecutive lines matches)
-    """
+        Outputs verses to file (groups of four lines where the last word of two consecutive lines matches)
+        """
     output_file = open(filename,'w')
     previous_line = ""
     
@@ -230,12 +262,12 @@ if __name__=='__main__':
     parser.add_argument('-generate', type = str, required = False, choices = ['rock','rap','pop'], help = 'generate genre lyrics (rock, rap, pop)')
     parser.add_argument('-classify', type = str, required = False,  help = 'classify the genre of an unlabeled set of lyrics')
     args = parser.parse_args()
-
+    
     if args.generate:
         if not os.path.exists(args.generate+'.txt') or os.path.getsize(args.generate+'.txt') == 0:
             print "compiling "+args.generate+" corpus..."
             compile_corpus_for_genre(args.generate)
-        filename = args.generate+'.txt'
+        filename = args.generate+'train.txt'
         model = create_ngram_model(filename)
         #generate_line(model)
         print "generating "+args.generate+" lyrics..."
@@ -246,10 +278,21 @@ if __name__=='__main__':
         RAP = create_ngram_model('raptrain.txt')
         POP = create_ngram_model('poptrain.txt')
         
+        
+        
         genre_list = ['Rock', 'Rap', 'Pop']
         genre_model_list = [ROCK, RAP, POP]
         
+        errors = 0.0
+        total = 0.0
+        for item in genre_list:
+            for n in range(20):
+                guess = genre_list[classify(genre_model_list, item.lower() + 'test%s.txt' % n)]
+                print item, guess
+                if item != guess:
+                    errors += 1
+                total += 1
 
-        print "Lyrics classified as " + genre_list[classify(genre_model_list, args.classify)] + "."
-            
-    
+
+        print "Accuracy: " + str((total-errors)/total)
+#print "Lyrics classified as " + genre_list[classify(genre_model_list, args.classify)] + "."
