@@ -10,11 +10,13 @@ import string
 import random
 import os.path
 import re
+import math.log
 
 START_TAG = "<s>"
 END_TAG = "</s>"
 CORPUS_SIZE = 4
 LINES_PER_VERSE = 6
+SYLLABLES_PER_LINE = 10
 
 #approximates the number of syllables in a word
 def approx_nsyl(word):  #Credit to Danielle Sucher - http://www.daniellesucher.com/2012/04/nantucket-an-accidental-limerick-detector/
@@ -83,7 +85,7 @@ def generate_key(seq):
     return key
 
 def classify(models, filename):
-    maxprob = 0.0
+    maxprob = float('-inf')
     best_fit = {}
     #find p(lyrics) for each model
     for model in models:
@@ -118,9 +120,9 @@ def classify(models, filename):
                 
                 #if no n-gram matches, we're looking at an unkown word
                 if prob == 0:
-                    prob += .0000000001
+                    prob += .000000000001
                 
-                totalprob += prob
+                totalprob += math.log(prob)
             
             #end of a line gets a start of sentence tag
             for i in range(len(backpointers) - 1):
@@ -199,13 +201,14 @@ def generate_line(model):
         totalUnigramCount += model[unigram]
     sequence = start
     i = 1
+    syllables = 0
     while(1):
         # Choose the next word in the generated sequence based on bigram probabilities
         nextword = ""
         bestProb = 0.0
         for token in unigrams:
             if sequence.split()[i-2]+" "+sequence.split()[i-1]+" "+token in model.keys():
-                prob = model[sequence.split()[i-2]+" "+sequence.split()[i-1]+" "+token]/model[sequence.split()[i-1]+" "+token]
+                prob = model[sequence.split()[i-2]+" "+sequence.split()[i-1]+" "+token]/model[sequence.split()[i-2]+" "+sequence.split()[i-1]]
             elif sequence.split()[i-1]+" "+token in model.keys():
                 prob = model[sequence.split()[i-1]+" "+token]/model[sequence.split()[i-1]]
             else:
@@ -215,9 +218,10 @@ def generate_line(model):
                 bestProb = prob
                 nextword = token
         # Exit the loop when the probability of ending the verse is greater than the probability of adding another word
-        if model[sequence.split()[i-1]+" "+END_TAG]/model[sequence.split()[i-1]] > bestProb:
+        if model[sequence.split()[i-1]+" "+END_TAG]/model[sequence.split()[i-1]] > bestProb or syllables > SYLLABLES_PER_LINE:
             break
         sequence = sequence+" "+nextword
+        syllables += approx_nsyl(nextword)
         i += 1
     return sequence
 
