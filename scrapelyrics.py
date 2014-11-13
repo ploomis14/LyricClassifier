@@ -9,19 +9,18 @@ import argparse
 import string
 import random
 import os.path
-<<<<<<< HEAD
 import re
 import math.log
-=======
 import sys
->>>>>>> a70375e66ca35eea6111b6afd0c763e6611a81c9
 
 START_TAG = "<s>"
 END_TAG = "</s>"
 CORPUS_SIZE = 4
-<<<<<<< HEAD
 LINES_PER_VERSE = 6
 SYLLABLES_PER_LINE = 10
+
+reload(sys)
+sys.setdefaultencoding("utf-8")
 
 #approximates the number of syllables in a word
 def approx_nsyl(word):  #Credit to Danielle Sucher - http://www.daniellesucher.com/2012/04/nantucket-an-accidental-limerick-detector/
@@ -43,14 +42,6 @@ def approx_nsyl(word):  #Credit to Danielle Sucher - http://www.daniellesucher.c
         count += 1
     return count
 
-=======
-LINES_PER_VERSE = 5
-VERSES_PER_SONG = 4
-
-reload(sys)
-sys.setdefaultencoding("utf-8")
->>>>>>> a70375e66ca35eea6111b6afd0c763e6611a81c9
-
 def compile_corpus_for_genre(genre):
     """
         Scrapes website for song lyrics and compiles corpora with lyrics from each genre of music.
@@ -66,14 +57,8 @@ def compile_corpus_for_genre(genre):
             song_tree = html.fromstring(lyric_page.text)
             verses = song_tree.xpath('//*[@data-editorial-state="accepted"]/text()')
             for verse in verses:
-<<<<<<< HEAD
                 if verse.strip("[]") == verse:  #skip annotations like "[Chorus 1]" and "[Sample: <song>]"
-                    f.write(verse.encode('utf-8')+'\n')
-    
-    
-=======
-                f.write(verse+'\n')
->>>>>>> a70375e66ca35eea6111b6afd0c763e6611a81c9
+                    f.write(verse+'\n')
     f.close()
     create_test_data(genre, CORPUS_SIZE)
 
