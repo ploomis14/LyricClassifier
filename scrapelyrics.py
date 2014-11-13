@@ -9,12 +9,17 @@ import argparse
 import string
 import random
 import os.path
+<<<<<<< HEAD
 import re
 import math.log
+=======
+import sys
+>>>>>>> a70375e66ca35eea6111b6afd0c763e6611a81c9
 
 START_TAG = "<s>"
 END_TAG = "</s>"
 CORPUS_SIZE = 4
+<<<<<<< HEAD
 LINES_PER_VERSE = 6
 SYLLABLES_PER_LINE = 10
 
@@ -38,6 +43,13 @@ def approx_nsyl(word):  #Credit to Danielle Sucher - http://www.daniellesucher.c
         count += 1
     return count
 
+=======
+LINES_PER_VERSE = 5
+VERSES_PER_SONG = 4
+
+reload(sys)
+sys.setdefaultencoding("utf-8")
+>>>>>>> a70375e66ca35eea6111b6afd0c763e6611a81c9
 
 def compile_corpus_for_genre(genre):
     """
@@ -54,10 +66,14 @@ def compile_corpus_for_genre(genre):
             song_tree = html.fromstring(lyric_page.text)
             verses = song_tree.xpath('//*[@data-editorial-state="accepted"]/text()')
             for verse in verses:
+<<<<<<< HEAD
                 if verse.strip("[]") == verse:  #skip annotations like "[Chorus 1]" and "[Sample: <song>]"
                     f.write(verse.encode('utf-8')+'\n')
     
     
+=======
+                f.write(verse+'\n')
+>>>>>>> a70375e66ca35eea6111b6afd0c763e6611a81c9
     f.close()
     create_test_data(genre, CORPUS_SIZE)
 
@@ -246,19 +262,20 @@ def output_lyrics(model,filename):
     output_file = open(filename,'w')
     previous_line = ""
     
-    for i in range(1,LINES_PER_VERSE):
-        current_line = generate_line(model)
-        output = current_line+"\n"
-        # Exchange the last word of the current line for a word the rhymes with the previous line
-        if i%2 == 0:
-            prev_word = previous_line.rsplit(' ', 1)[1]
-            pos = nltk.pos_tag([prev_word])
-            rhyme_word = rhyme(prev_word,pos)
-            if len(rhyme_word) > 0:
-                output = current_line.rsplit(' ', 1)[0]+" "+rhyme_word+"\n"
-        
-        print output
-        previous_line = current_line
+    for v in range(1,VERSES_PER_SONG):
+        for i in range(1,LINES_PER_VERSE):
+            current_line = generate_line(model)
+            output = current_line+"\n"
+            # Exchange the last word of the current line for a word the rhymes with the previous line
+            if i%2 == 0:
+                prev_word = previous_line.rsplit(' ', 1)[1]
+                pos = nltk.pos_tag([prev_word])
+                rhyme_word = rhyme(prev_word,pos)
+                if len(rhyme_word) > 0:
+                    output = current_line.rsplit(' ', 1)[0]+" "+rhyme_word+"\n"
+            output_file.write(output)
+            previous_line = current_line
+        output_file.write("\n")
     output_file.close()
 
 if __name__=='__main__':
