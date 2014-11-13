@@ -9,11 +9,16 @@ import argparse
 import string
 import random
 import os.path
+import sys
 
 START_TAG = "<s>"
 END_TAG = "</s>"
 CORPUS_SIZE = 4
-LINES_PER_VERSE = 6
+LINES_PER_VERSE = 5
+VERSES_PER_SONG = 4
+
+reload(sys)
+sys.setdefaultencoding("utf-8")
 
 def compile_corpus_for_genre(genre):
     """
@@ -30,7 +35,7 @@ def compile_corpus_for_genre(genre):
             song_tree = html.fromstring(lyric_page.text)
             verses = song_tree.xpath('//*[@data-editorial-state="accepted"]/text()')
             for verse in verses:
-                f.write(verse.encode('utf-8')+'\n')
+                f.write(verse+'\n')
     f.close()
 
 def generate_key(seq):
@@ -159,19 +164,20 @@ def output_lyrics(model,filename):
     output_file = open(filename,'w')
     previous_line = ""
     
-    for i in range(1,LINES_PER_VERSE):
-        current_line = generate_line(model)
-        output = current_line+"\n"
-        # Exchange the last word of the current line for a word the rhymes with the previous line
-        if i%2 == 0:
-            prev_word = previous_line.rsplit(' ', 1)[1]
-            pos = nltk.pos_tag([prev_word])
-            rhyme_word = rhyme(prev_word,pos)
-            if len(rhyme_word) > 0:
-                output = current_line.rsplit(' ', 1)[0]+" "+rhyme_word+"\n"
-        
-        print output
-        previous_line = current_line
+    for v in range(1,VERSES_PER_SONG):
+        for i in range(1,LINES_PER_VERSE):
+            current_line = generate_line(model)
+            output = current_line+"\n"
+            # Exchange the last word of the current line for a word the rhymes with the previous line
+            if i%2 == 0:
+                prev_word = previous_line.rsplit(' ', 1)[1]
+                pos = nltk.pos_tag([prev_word])
+                rhyme_word = rhyme(prev_word,pos)
+                if len(rhyme_word) > 0:
+                    output = current_line.rsplit(' ', 1)[0]+" "+rhyme_word+"\n"
+            output_file.write(output)
+            previous_line = current_line
+        output_file.write("\n")
     output_file.close()
 
 if __name__=='__main__':
