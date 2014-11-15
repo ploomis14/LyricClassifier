@@ -10,43 +10,37 @@ import string
 import random
 import os.path
 import re
-import math.log
+import math
 import sys
+import curses 
+from curses.ascii import isdigit 
 
+UNK_PROB = .000000000001
 START_TAG = "<s>"
 END_TAG = "</s>"
 CORPUS_SIZE = 4
 LINES_PER_VERSE = 6
 SYLLABLES_PER_LINE = 10
+VERSES_PER_SONG = 3
 
 reload(sys)
 sys.setdefaultencoding("utf-8")
 
-#approximates the number of syllables in a word
-def approx_nsyl(word):  #Credit to Danielle Sucher - http://www.daniellesucher.com/2012/04/nantucket-an-accidental-limerick-detector/
-    digraphs = ["ai", "au", "ay", "ea", "ee", "ei", "ey", "oa", "oe", "oi", "oo", "ou", "oy", "ua", "ue", "ui"]
-    # Ambiguous, currently split: ie, io
-    # Ambiguous, currently kept together: ui
-    digraphs = set(digraphs)
-    count = 0
-    array = re.split("[^aeiouy]+", word.lower())
-    for i, v in enumerate(array):
-        if len(v) > 1 and v not in digraphs:
-            count += 1
-        if v == '':
-            del array[i]
-    count += len(array)
-    if re.search("(?&lang;=\w)(ion|ious|(?&lang;!t)ed|es|[^lr]e)(?![a-z']+)", word.lower()):
-        count -= 1
-    if re.search("'ve|n't", word.lower()):
-        count += 1
-    return count
+def approx_nsyl(word):
+    """
+    Approximates the number of syllables in a word
+    """
+    d = cmudict.dict()
+    if word not in d.keys():
+        return 0
+    x = d[word.lower()][0]
+    return len(list(y for y in x if isdigit(y[-1])))
 
 def compile_corpus_for_genre(genre):
     """
-        Scrapes website for song lyrics and compiles corpora with lyrics from each genre of music.
-        Compile a corpus of lyrics for a certain genre of music
-        """
+    Scrapes website for song lyrics and compiles corpora with lyrics from each genre of music.
+    Compile a corpus of lyrics for a certain genre of music
+    """
     f = open(genre+'train.txt','w')
     for i in range(CORPUS_SIZE):
         page = requests.get('http://genius.com/tags/'+genre+'/all?page='+str(i))
@@ -121,7 +115,7 @@ def classify(models, filename):
                 
                 #if no n-gram matches, we're looking at an unkown word
                 if prob == 0:
-                    prob += .000000000001
+                    prob += UNK_PROB
                 
                 totalprob += math.log(prob)
             
@@ -142,13 +136,10 @@ def classify(models, filename):
 
 def create_ngram_model(filename):
     """
-        Accumulate trigram, bigram, and unigram counts using a corpus of lyrics from a certain genre of music
-        Returns a dictionary containing the ngram counts collected from the corpus file
-        """
+    Accumulate trigram, bigram, and unigram counts using a corpus of lyrics from a certain genre of music
+    Returns a dictionary containing the ngram counts collected from the corpus file
+    """
     countsdict = defaultdict(float)
-    unigrams = 0
-    bigrams = 0
-    trigrams = 0
     for line in open(filename):
         line = line.lower()
         words = line.split()
@@ -156,44 +147,30 @@ def create_ngram_model(filename):
             # unigrams
             words[i] = words[i].strip('?.,/()!')
             countsdict[words[i].strip()]+=1.0
-            unigrams += 1
+            
             # bigrams
             if i == 0:
                 countsdict[START_TAG+" "+words[i].strip()]+=1.0
-                bigrams+=1
         
             elif i >= 1:
                 countsdict[words[i-1].strip()+" "+words[i].strip()]+=1.0
-                bigrams+=1
                 
                 if i == len(words)-1:
                     countsdict[words[i].strip()+" "+END_TAG]+=1.0
-                    bigrams+=1
             
             # trigrams
             if i >= 2:
                 countsdict[words[i-2].strip()+" "+words[i-1].strip()+" "+words[i].strip()]+=1.0
-                trigrams+=1
+
                 if i == len(words)-1:
                     countsdict[words[i-1].strip()+" "+words[i].strip()+" "+END_TAG]+=1.0
-                    trigrams+=1
-    #normalize the counts
-    for key in countsdict:
-        #print key
-        if len(key.split())==1:
-            countsdict[key] /= unigrams
-        if len(key.split())==2:
-            countsdict[key] /= bigrams
-        if len(key.split())==3:
-            countsdict[key] /= trigrams
-
 
     return countsdict
 
 def generate_line(model):
     """
-        Use an ngram model to generate a single line of lyrics for a certain genre of music
-        """
+    Use an ngram model to generate a single line of lyrics for a certain genre of music
+    """
     # Choose a random word to start the lyric. Choose from the set of words that follow a start tag.
     start = random.choice([ngram for ngram in model.keys() if START_TAG in ngram.split()]).split()[1]
     unigrams = [unigram for unigram in model.keys() if len(unigram.split()) == 1]
@@ -202,10 +179,15 @@ def generate_line(model):
         totalUnigramCount += model[unigram]
     sequence = start
     i = 1
-    syllables = 0
+
+    # Continuity among the syllable length of lines
+    # There should be increased probability of ending a line when the maximum syllable length is exceeded
+    end_of_line_prob = 0.0
+
     while(1):
         # Choose the next word in the generated sequence based on bigram probabilities
         nextword = ""
+        syllables = 0
         bestProb = 0.0
         for token in unigrams:
             if sequence.split()[i-2]+" "+sequence.split()[i-1]+" "+token in model.keys():
@@ -218,8 +200,15 @@ def generate_line(model):
             if prob > bestProb:
                 bestProb = prob
                 nextword = token
+
+        end_of_line_prob = model[sequence.split()[i-1]+" "+END_TAG]/model[sequence.split()[i-1]]
+        for w in sequence.split():
+            syllables += approx_nsyl(w)
+        if syllables > SYLLABLES_PER_LINE:
+            end_of_line_prob += 0.1
+
         # Exit the loop when the probability of ending the verse is greater than the probability of adding another word
-        if model[sequence.split()[i-1]+" "+END_TAG]/model[sequence.split()[i-1]] > bestProb or syllables > SYLLABLES_PER_LINE:
+        if  end_of_line_prob > bestProb:
             break
         sequence = sequence+" "+nextword
         syllables += approx_nsyl(nextword)
@@ -228,8 +217,8 @@ def generate_line(model):
 
 def rhyme(w, pos):
     """
-        Given a word and its POS tag, return a rhyming word that has the same part of speech
-        """
+    Given a word and its POS tag, return a rhyming word that has the same part of speech
+    """
     entries = nltk.corpus.cmudict.entries()
     syllables = [(word, syl) for word, syl in entries if word == w and pos == nltk.pos_tag([word])]
     rhyme = ""
@@ -242,11 +231,11 @@ def rhyme(w, pos):
 
 def output_lyrics(model,filename):
     """
-        Outputs verses to file (groups of four lines where the last word of two consecutive lines matches)
-        """
+    Outputs verses to file (groups of four lines where the last word of two consecutive lines matches)
+    """
     output_file = open(filename,'w')
     previous_line = ""
-    
+
     for v in range(1,VERSES_PER_SONG):
         for i in range(1,LINES_PER_VERSE):
             current_line = generate_line(model)
@@ -283,8 +272,6 @@ if __name__=='__main__':
         ROCK = create_ngram_model('rocktrain.txt')
         RAP = create_ngram_model('raptrain.txt')
         POP = create_ngram_model('poptrain.txt')
-        
-        
         
         genre_list = ['Rock', 'Rap', 'Pop']
         genre_model_list = [ROCK, RAP, POP]
