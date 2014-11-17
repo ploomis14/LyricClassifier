@@ -51,6 +51,7 @@ def create_ngram_model(filename):
     Returns a dictionary containing the ngram counts collected from the corpus file
     """
     countsdict = defaultdict(float)
+    nextword = defaultdict(set)
     unigrams = 0
     bigrams = 0
     trigrams = 0
@@ -68,12 +69,15 @@ def create_ngram_model(filename):
             bigrams += 1
             if i == 0:
                 countsdict[START_TAG+" "+words[i].strip()]+=1.0
-            
+                countsdict[START_TAG]+=1.0
+                nextword[START_TAG].update([words[i].strip()])
             elif i >= 1:
                 countsdict[words[i-1].strip()+" "+words[i].strip()]+=1.0
-                    
+                nextword[words[i-1].strip()].update([words[i].strip()])    
                 if i == len(words)-1:
                     countsdict[words[i].strip()+" "+END_TAG]+=1.0
+                    # nextword[words[i].strip()].update([END_TAG]) 
+                    countsdict[END_TAG]+=1.0
                 
             # trigrams
             trigrams += 1
@@ -92,7 +96,7 @@ def create_ngram_model(filename):
         if len(key.split())==3:
             countsdict[key] /= trigrams
 
-    return countsdict
+    return countsdict,nextword
 
 def create_train_data(genres):
     """
@@ -128,8 +132,7 @@ class LyricGenerator:
         filename = genre+'.txt'
         if not os.path.exists(filename) or os.path.getsize(filename) == 0:
             compile_corpus_for_genre(genre,filename,CORPUS_SIZE)
-        self.model = create_ngram_model(filename)
-
+        (self.model,self.nextword) = create_ngram_model(filename)
     def approx_nsyl(self,word):
         """
         Approximates the number of syllables in a word
@@ -144,11 +147,13 @@ class LyricGenerator:
         """
         Use an ngram model to generate a single line of lyrics for a certain genre of music
         """
+        # print "start generating"
         # Choose a random word to start the lyric. Choose from the set of words that follow a start tag.
         start = random.choice([ngram for ngram in self.model.keys() if START_TAG in ngram.split()]).split()[1]
-        unigrams = [unigram for unigram in self.model.keys() if len(unigram.split()) == 1]
+        # unigrams = [unigram for unigram in self.model.keys() if len(unigram.split()) == 1]
         sequence = start
         i = 1
+        # print "finished loading"
 
         # Continuity among the syllable length of lines
         # There should be increased probability of ending a line when the maximum syllable length is exceeded
@@ -158,31 +163,35 @@ class LyricGenerator:
             # Choose the next word in the generated sequence based on bigram probabilities
             nextword = ""
             syllables = 0
-            bestProb = 0.0
-            for token in unigrams:
+            bestProb = prob =0.0
+            for token in self.nextword[sequence.split()[-1]]:
+                # print "token",sequence.split()[-1],token
                 if sequence.split()[i-2]+" "+sequence.split()[i-1]+" "+token in self.model.keys():
                     prob = self.model[sequence.split()[i-2]+" "+sequence.split()[i-1]+" "+token]/self.model[sequence.split()[i-2]+" "+sequence.split()[i-1]]
-                elif sequence.split()[i-1]+" "+token in self.model.keys():
-                    prob = self.model[sequence.split()[i-1]+" "+token]/self.model[sequence.split()[i-1]]
                 else:
-                    prob = self.model[token]
+                    prob = self.model[sequence.split()[i-1]+" "+token]/self.model[sequence.split()[i-1]]
+                
                 
                 if prob > bestProb:
                     bestProb = prob
                     nextword = token
 
+            
             end_of_line_prob = self.model[sequence.split()[i-1]+" "+END_TAG]/self.model[sequence.split()[i-1]]
+            print i,sequence.split(),sequence.split()[i-1],bestProb,end_of_line_prob
             for w in sequence.split():
                 syllables += self.approx_nsyl(w)
             if syllables > SYLLABLES_PER_LINE:
                 end_of_line_prob += 0.2
 
             # Exit the loop when the probability of ending the verse is greater than the probability of adding another word
-            if  end_of_line_prob > bestProb:
+            if  prob+end_of_line_prob > bestProb :
                 break
             sequence = sequence+" "+nextword
             syllables += self.approx_nsyl(nextword)
             i += 1
+        # print "sequence generated"
+
         return sequence
 
     def rhyme(self,w, pos):
@@ -213,7 +222,7 @@ class LyricGenerator:
                 output = current_line+"\n"
                 # Exchange the last word of the current line for a word the rhymes with the previous line
                 if i%2 == 0:
-                    prev_word = previous_line.rsplit(' ', 1)[1]
+                    prev_word = previous_line.split()[-1]
                     pos = nltk.pos_tag([prev_word])
                     rhyme_word = self.rhyme(prev_word,pos)
                     if len(rhyme_word) > 0:
