@@ -215,7 +215,7 @@ class LyricGenerator:
                 if i%2 == 0:
                     prev_word = previous_line.rsplit(' ', 1)[1]
                     pos = nltk.pos_tag([prev_word])
-                    rhyme_word = rhyme(prev_word,pos)
+                    rhyme_word = self.rhyme(prev_word,pos)
                     if len(rhyme_word) > 0:
                         output = current_line.rsplit(' ', 1)[0]+" "+rhyme_word+"\n"
                 lyrics = lyrics+output
