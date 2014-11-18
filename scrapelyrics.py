@@ -200,8 +200,6 @@ class LyricGenerator:
         output_file = open(filename,'w')
         previous_line = ""
         lyrics = ""
-        chorus = ""
-        bridges = 1
 
         for v in range(1,VERSES_PER_SONG+1):
             for i in range(1,LINES_PER_VERSE+1):
@@ -216,19 +214,8 @@ class LyricGenerator:
                         
                 lyrics = lyrics+output
                 print output
-            
-            if chorus == "":
-                chorus = verse
-                continue
-            
-            if v >= 2 and random.randint(1,5) == 5:
-                lyrics += ("Bridge %s\n" + verse + "\n" % bridges)
-                bridges += 1
-            else:
-                lyrics += ("Verse %s\n" + verse+"\n" % v-1)
-            if random.randint(1,10) <= 7:
-                lyrics += ("Chorus\n" + chorus+"\n" % v-1)
-            
+                previous_line = current_line
+            output_file.write("\n")
         output_file.write(lyrics)
         output_file.close()
 
