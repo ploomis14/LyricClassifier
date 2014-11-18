@@ -169,6 +169,7 @@ class LyricGenerator:
                     bestProb = prob
                     nextword = token
 
+            print sequence.split()
             end_of_line_prob = self.model[sequence.split()[-1]+" "+END_TAG]/self.model[sequence.split()[-1]]
             
             if syllables > MAX_SYLLABLES:
@@ -209,8 +210,8 @@ class LyricGenerator:
                     prev_word = previous_line.split()[-1]
                     pos = nltk.pos_tag([prev_word])
                     rhyme_word = self.rhyme(prev_word,pos)
-                    output = current_line.rsplit(' ', 1)[0]+" "+rhyme_word+"\n"
-                        
+                    if len(rhyme_word) > 0:
+                        output = current_line.rsplit(' ', 1)[0]+" "+rhyme_word+"\n"
                 lyrics = lyrics+output
                 print output
                 previous_line = current_line
