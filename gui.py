@@ -27,7 +27,7 @@ class GUI(Frame):
         self.initUI()
     
     def initUI(self):
-        self.parent.title("Quit button")
+        self.parent.title("Song Generator")
         self.style = Style()
         self.style.theme_use("default")
 
@@ -44,8 +44,7 @@ class GUI(Frame):
         lb.bind("<<ListboxSelect>>", self.onSelect)    
         lb.place(x=20, y=20)
 
-        self.lyrics = "dsahlfhdsajkfhasdsahlfhdsajkfhasdsahlfhdsajkfhasdsahlfhdsajkfhasdsahlfhdsajkfhasdsahlfhdsajkfhasdsahlfhdsajkfhasdsahlfhdsajkfhasdsahlfhdsajkfhasdsahlfhdsajkfhasdsahlfhdsajkfhasdsahlfhdsajkfhasdsahlfhdsajkfhasdsahlfhdsajkfhasdsahlfhdsajkfhasdsahlfhdsajkfhasdsahlfhdsajkfhasdsahlfhdsajkfhasdsahlfhdsajkfhasdsahlfhdsajkfhasdsahlfhdsajkfhasdsahlfhdsajkfhasdsahlfhdsajkfhasdsahlfhdsajkfhasdsahlfhdsajkfhasdsahlfhdsajkfhasdsahlfhdsajkfhasdsahlfhdsajkfhasdsahlfhdsajkfhas"
-
+        self.lyrics = ""
         self.genre = StringVar()
 
     def onSelect(self, val):
@@ -59,7 +58,7 @@ class GUI(Frame):
         generator = LyricGenerator(self.genre.get())
         filename = 'generate-'+self.genre.get()+'.txt'
         generator.output_lyrics(filename)
-        f = open(filename,r)
+        f = open(filename,'r')
         self.lyrics = f.read()
         box.showinfo("Lyrics for {0}".format(self.genre.get()), self.lyrics)
 
