@@ -3,12 +3,12 @@
 # @Author: ziyuanliu
 # @Date:   2014-11-16 20:35:36
 # @Last Modified by:   ziyuanliu
-# @Last Modified time: 2014-11-16 21:13:00
+# @Last Modified time: 2014-11-17 22:11:28
 
 from Tkinter import *
 from ttk import *
-from scrapelyrics import *
-
+# from scrapelyrics import *
+from optimizedgenerator import nltk_process
 import tkMessageBox as box
 
 
@@ -55,9 +55,10 @@ class GUI(Frame):
 
     def generatelyrics(self):
         print "generating lyrics for",self.genre.get()
-        generator = LyricGenerator(self.genre.get())
+        nltk_process(self.genre.get())
+        # generator = LyricGenerator(self.genre.get())
         filename = 'generate-'+self.genre.get()+'.txt'
-        generator.output_lyrics(filename)
+        # generator.output_lyrics(filename)
         f = open(filename,'r')
         self.lyrics = f.read()
         box.showinfo("Lyrics for {0}".format(self.genre.get()), self.lyrics)
