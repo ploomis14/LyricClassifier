@@ -200,6 +200,8 @@ class LyricGenerator:
         output_file = open(filename,'w')
         previous_line = ""
         lyrics = ""
+        chorus = ""
+        bridges = 1
 
         for v in range(1,VERSES_PER_SONG+1):
             for i in range(1,LINES_PER_VERSE+1):
@@ -210,12 +212,23 @@ class LyricGenerator:
                     prev_word = previous_line.split()[-1]
                     pos = nltk.pos_tag([prev_word])
                     rhyme_word = self.rhyme(prev_word,pos)
-                    if len(rhyme_word) > 0:
-                        output = current_line.rsplit(' ', 1)[0]+" "+rhyme_word+"\n"
+                    output = current_line.rsplit(' ', 1)[0]+" "+rhyme_word+"\n"
+                        
                 lyrics = lyrics+output
                 print output
-                previous_line = current_line
-            lyrics = lyrics+"\n"
+            
+            if chorus == "":
+                chorus = verse
+                continue
+            
+            if v >= 2 and random.randint(1,5) == 5:
+                lyrics += ("Bridge %s\n" + verse + "\n" % bridges)
+                bridges += 1
+            else:
+                lyrics += ("Verse %s\n" + verse+"\n" % v-1)
+            if random.randint(1,10) <= 7:
+                lyrics += ("Chorus\n" + chorus+"\n" % v-1)
+            
         output_file.write(lyrics)
         output_file.close()
 
