@@ -173,9 +173,9 @@ class LyricGenerator:
             end_of_line_prob = self.model[sequence.split()[-1]+" "+END_TAG]/self.model[sequence.split()[-1]]
             
             if syllables > MAX_SYLLABLES:
-                end_of_line_prob += 0.6
+                end_of_line_prob += 0.7
             if syllables < MIN_SYLLABLES:
-                end_of_line_prob -= 0.2
+                end_of_line_prob -= 0.3
 
             # Exit the loop when the probability of ending the verse is greater than the probability of adding another word
             if end_of_line_prob > bestProb or nextword == "":
@@ -215,7 +215,7 @@ class LyricGenerator:
                 lyrics = lyrics+output
                 print output
                 previous_line = current_line
-            output_file.write("\n")
+            lyrics = lyrics+"\n"
         output_file.write(lyrics)
         output_file.close()
 

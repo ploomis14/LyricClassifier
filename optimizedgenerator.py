@@ -27,14 +27,12 @@ reload(sys)
 sys.setdefaultencoding("utf-8")
 
 def approx_nsyl(word):
-	"""
-	Approximates the number of syllables in a word
-	"""
-	d = cmudict.dict()
-	if word not in d.keys():
-		return 0
-	x = d[word.lower()][0]
-	return len(list(y for y in x if isdigit(y[-1])))
+    """Credit - Jason Sundram, http://runningwithdata.com/post/3576752158/w
+    Return the max syllable count in the case of multiple pronunciations"""
+    d = cmudict.dict()
+    if word not in d.keys():
+        return 0
+    return max([len([y for y in x if y[-1].isdigit()]) for x in d[word.lower()]])
 
 def generate_line(key):
 	"""
@@ -71,9 +69,9 @@ def generate_line(key):
 
 			end_of_line_prob = model[sequence.split()[-1]+" "+END_TAG]/model[sequence.split()[-1]]
 			if syllables > MAX_SYLLABLES:
-				end_of_line_prob += 0.6
+				end_of_line_prob += 0.7
 			if syllables < MIN_SYLLABLES:
-				end_of_line_prob -= 0.2
+				end_of_line_prob -= 0.3
 
 			# Exit the loop when the probability of ending the verse is greater than the probability of adding another word
 			if end_of_line_prob > bestProb or nextword == "":
@@ -90,18 +88,13 @@ def generate_line(key):
 	return {key:sequence}
 
 def rhyme(w, pos):
-	"""
-	Given a word and its POS tag, return a rhyming word that has the same part of speech
-	"""
-	entries = nltk.corpus.cmudict.entries()
-	syllables = [(word, syl) for word, syl in entries if word == w and pos == nltk.pos_tag([word])]
-	rhyme = ""
-	for (token, syllable) in syllables:
-		for word, pron in entries:
-			if pron[-2:] == syllable[-2:]:
-				rhyme = word
-				break;
-	return rhyme
+    """Given a word and its POS tag, return a rhyming word that has the same part of speech"""
+    entries = nltk.corpus.cmudict.entries()
+    syllables = [(word, syl) for word, syl in entries if word == w and pos == nltk.pos_tag([word])]
+    rhymes = [word for (token, syllable) in syllables for word, pron in entries if pron[-2:] == syllable[-2:]]
+    if len(rhymes) == 0:
+        return w
+    return rhymes[random.randint(0,len(rhymes))]
 
 def lines_generated(kwargs):
 	retval = {}
