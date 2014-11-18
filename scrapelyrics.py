@@ -18,7 +18,7 @@ from curses.ascii import isdigit
 UNK_PROB = .000000000001
 START_TAG = "<s>"
 END_TAG = "</s>"
-CORPUS_SIZE = 4
+CORPUS_SIZE = 6
 LINES_PER_VERSE = 4
 SYLLABLES_PER_LINE = 10
 VERSES_PER_SONG = 3
@@ -215,8 +215,10 @@ class LyricGenerator:
         output_file = open(filename,'w')
         previous_line = ""
         lyrics = ""
+        chorus = ""
 
         for v in range(1,VERSES_PER_SONG+1):
+            verse = ""            
             for i in range(1,LINES_PER_VERSE+1):
                 current_line = self.generate_line()
                 output = current_line+"\n"
@@ -227,10 +229,16 @@ class LyricGenerator:
                     rhyme_word = self.rhyme(prev_word,pos)
                     if len(rhyme_word) > 0:
                         output = current_line.rsplit(' ', 1)[0]+" "+rhyme_word+"\n"
-                lyrics = lyrics+output
+                verse = lyrics+output
                 print output
                 previous_line = current_line
-            lyrics = lyrics+"\n"
+                
+            if chorus == "":
+                chorus = verse
+                continue
+            
+            lyrics += ("Verse %s\n" + verse+"\n" + "Chorus\n" + chorus+"\n" % v-1)
+            
         output_file.write(lyrics)
         output_file.close()
 
@@ -244,8 +252,8 @@ class LyricClassifier:
         self.genre_list = ['rock', 'rap']
         create_train_data(self.genre_list)
 
-        rock = create_ngram_model('rocktrain.txt')
-        rap = create_ngram_model('raptrain.txt')
+        rock = create_ngram_model('rocktrain.txt')[0]
+        rap = create_ngram_model('raptrain.txt')[0]
 
         for genre in self.genre_list:
             create_test_data(genre)
@@ -293,7 +301,7 @@ class LyricClassifier:
                         j+=1
                         l*=.1
                     
-                    #if no n-gram matches, we're looking at an unkown word
+                    #if no n-gram matches, we're looking at an unknown word
                     if prob == 0:
                         prob += UNK_PROB
                     
@@ -309,6 +317,7 @@ class LyricClassifier:
             if totalprob > maxprob:
                 maxprob = totalprob
                 best_fit = model
+                
         
         if best_fit == {}:
             return 0
