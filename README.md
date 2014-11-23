@@ -1,12 +1,11 @@
 SONG LYRIC GENERATOR/CLASSIFIER
 -------------------------------
-Name: scrapelyrics
+Description: This application scrapes music websites to compile corpora of lyrics for certain genres of music. It uses ngram models to generate verses of lyrics for a specified genre. It also classifies songs by genre.
 
-Usage:
-    python scrapelyrics.py -generate [rock,pop,rap]
-    python scrapelyrics.py -classify  [filename]
+gui.py - User interface for generator. Usage - python gui.py
 
-Description: This application scrapes music websites to compile a corpora of lyrics for certain genres of music.
-Generate - The scrapelyrics program will collect ngram probabilities from the corpus of the genre entered. It will use the ngram model to
-generate lines of lyrics. Generated lyrics will be output to a file named "[genre]-generate.txt"
-Classify - The scrapelyrics program will read a text file containing song lyrics, and predict the genre of the song.
+generator.py - The scrapelyrics program will collect ngram probabilities from the corpus of the genre entered. It will use the ngram model to generate lines of lyrics. Generated lyrics will be output to a file named "[genre]-generate.txt". Run using gui.py
+
+classifier.py - Contains class and supporting functions for lyric classifier.
+Usage - python classifier.py -classify
+Will test on a set of 20 songs and output resulting accuracy.
