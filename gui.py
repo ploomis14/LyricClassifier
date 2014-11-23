@@ -8,7 +8,7 @@
 from Tkinter import *
 from ttk import *
 # from scrapelyrics import *
-from optimizedgenerator import nltk_process
+from generator import nltk_process
 import tkMessageBox as box
 
 
@@ -68,7 +68,7 @@ class GUI(Frame):
 def main():
   
     root = Tk()
-    root.geometry("350x350+300+300")
+    root.geometry("400x400+300+300")
     app = GUI(root)
     root.mainloop()  
 
