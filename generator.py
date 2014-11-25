@@ -18,9 +18,8 @@ from nltk.corpus.reader.plaintext import PlaintextCorpusReader
 import nltk
 from nltk import bigrams
 from nltk import trigrams
-import traceback 
+import traceback
 
-UNK_PROB = .000000000001
 START_TAG = "<s>"
 END_TAG = "</s>"
 CORPUS_SIZE = 4
@@ -147,9 +146,9 @@ def generate_line(key):
 
 			end_of_line_prob = model[sequence.split()[-1]+" "+END_TAG]/model[sequence.split()[-1]]
 			if syllables > MAX_SYLLABLES:
-				end_of_line_prob += 0.7
+				end_of_line_prob += 0.8
 			if syllables < MIN_SYLLABLES:
-				end_of_line_prob -= 0.3
+				end_of_line_prob -= 0.5
 
 			# Exit the loop when the probability of ending the verse is greater than the probability of adding another word
 			if end_of_line_prob > bestProb or nextword == "":
@@ -203,37 +202,44 @@ def lines_generated(kwargs):
 	output_file.close()
 
 def output_lyrics(filename):
-	"""
-	Outputs verses to file (groups of four lines where the last word of two consecutive lines matches)
-	"""
-	global FILENAME
-	FILENAME = filename
+    """
+    Outputs verses to file (groups of four lines where the last word of two consecutive lines matches)
+    """
+    print filename
+    global FILENAME
+    FILENAME = filename
 	
-	inputs = [i for i in range(VERSES_PER_SONG*LINES_PER_VERSE)]
-	import multiprocessing
-	print "inputs",inputs
-	p = multiprocessing.Pool(8)
-	try:
-		p.map_async(generate_line, inputs, callback=lines_generated)
-		p.close()
-		p.join()
-	except Exception as e:
-		traceback.print_exc(e)
-		print e
+    inputs = [i for i in range(VERSES_PER_SONG*LINES_PER_VERSE)]
+    import multiprocessing
+    print "inputs",inputs
+    p = multiprocessing.Pool(8)
+    try:
+	   p.map_async(generate_line, inputs, callback=lines_generated)
+	   p.close()
+	   p.join()
+    except Exception as e:
+	   traceback.print_exc(e)
+	   print e
 
+def nltk_process(genre, cached_models):
+    filename = genre+'.txt'
+    global model, NGRAM
+    print "compiling corpus for "+genre+"..."
+    if not os.path.exists(filename) or os.path.getsize(filename) == 0:
+        compile_corpus_for_genre(genre,filename,CORPUS_SIZE)
+    print "done."
+    
+    if genre not in cached_models.keys():
+        model, NGRAM = create_ngram_model(filename)
+        cached_models[genre] = model
+        cached_models[genre+"ngram"] = NGRAM
+    
+    model = cached_models[genre]
+    NGRAM = cached_models[genre+"ngram"]
 
-	
-
-def nltk_process(genre):
-	#check folder 
-	filename = genre+'.txt'
-	if not os.path.exists(filename) or os.path.getsize(filename) == 0:
-		compile_corpus_for_genre(genre,filename,CORPUS_SIZE)
-
-	global model, NGRAM
-	model, NGRAM = create_ngram_model(filename)	
-	print "generating "+genre+" lyrics..."
-	output_lyrics('generate-'+genre+'.txt')
+    print "generating "+genre+" lyrics..."
+    output_lyrics('generate-'+genre+'.txt')
+    return cached_models
 		
 if __name__=='__main__':
 	parser = argparse.ArgumentParser()
@@ -243,17 +249,3 @@ if __name__=='__main__':
 	
 	if args.generate:
 		nltk_process(args.generate)
-
-		# filename = args.generate+'.txt'
-		# if not os.path.exists(filename) or os.path.getsize(filename) == 0:
-		# 	print "getting corpus"
-		# 	compile_corpus_for_genre(args.generate,filename,CORPUS_SIZE)
-		# global NGRAM_MODEL
-		# NGRAM_MODEL = nltk_process(filename)
-
-		
-	
-
-
-
-

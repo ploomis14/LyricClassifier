@@ -1,16 +1,10 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-# @Author: ziyuanliu
-# @Date:   2014-11-16 20:35:36
-# @Last Modified by:   ziyuanliu
-# @Last Modified time: 2014-11-17 22:11:28
+"""GUI for lyric generator"""
 
 from Tkinter import *
 from ttk import *
-# from scrapelyrics import *
+import os
+import os.path
 from generator import nltk_process
-import tkMessageBox as box
-
 
 class GUI(Frame):
   
@@ -24,6 +18,8 @@ class GUI(Frame):
             "rap"
         ]
 
+        self.cached_models = {}
+
         self.initUI()
     
     def initUI(self):
@@ -33,7 +29,7 @@ class GUI(Frame):
 
         self.pack(fill=BOTH, expand=1)
 
-        quitButton = Button(self, text="Generate",
+        quitButton = Button(self, text="Generate Lyrics",
             command=self.generatelyrics)
         quitButton.place(x=250, y=20)
 
@@ -54,24 +50,20 @@ class GUI(Frame):
         self.genre.set(value)
 
     def generatelyrics(self):
-        print "generating lyrics for",self.genre.get()
-        nltk_process(self.genre.get())
-        # generator = LyricGenerator(self.genre.get())
         filename = 'generate-'+self.genre.get()+'.txt'
-        # generator.output_lyrics(filename)
-        f = open(filename,'r')
-        self.lyrics = f.read()
-        box.showinfo("Lyrics for {0}".format(self.genre.get()), self.lyrics)
-
-
+        self.cached_models = nltk_process(self.genre.get(), self.cached_models)
+        if os.path.exists(filename):
+            f = open(filename,'r')
+            self.lyrics = f.read()
+            text = text = Text(self.parent)
+            text.insert(END,self.lyrics)
+            text.place(x=20,y=200)
 
 def main():
-  
     root = Tk()
-    root.geometry("400x400+300+300")
+    root.geometry("500x500+500+500")
     app = GUI(root)
-    root.mainloop()  
-
+    root.mainloop()
 
 if __name__ == '__main__':
     main()
