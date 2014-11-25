@@ -18,6 +18,8 @@ class GUI(Frame):
             "rap"
         ]
 
+        self.cached_models = {}
+
         self.initUI()
     
     def initUI(self):
@@ -49,7 +51,7 @@ class GUI(Frame):
 
     def generatelyrics(self):
         filename = 'generate-'+self.genre.get()+'.txt'
-        nltk_process(self.genre.get())
+        self.cached_models = nltk_process(self.genre.get(), self.cached_models)
         if os.path.exists(filename):
             f = open(filename,'r')
             self.lyrics = f.read()

@@ -28,8 +28,6 @@ MAX_SYLLABLES = 8
 MIN_SYLLABLES = 5
 VERSES_PER_SONG = 3
 
-cached_models = {}
-
 reload(sys)
 sys.setdefaultencoding("utf-8")
 
@@ -223,21 +221,25 @@ def output_lyrics(filename):
 	   traceback.print_exc(e)
 	   print e
 
-def nltk_process(genre):
+def nltk_process(genre, cached_models):
     filename = genre+'.txt'
     global model, NGRAM
+    print "compiling corpus for "+genre+"..."
     if not os.path.exists(filename) or os.path.getsize(filename) == 0:
         compile_corpus_for_genre(genre,filename,CORPUS_SIZE)
+    print "done."
+    
     if genre not in cached_models.keys():
         model, NGRAM = create_ngram_model(filename)
         cached_models[genre] = model
         cached_models[genre+"ngram"] = NGRAM
-    else:
-        model = cached_models[genre]
-        NGRAM = cached_models[genre+"ngram"]
+    
+    model = cached_models[genre]
+    NGRAM = cached_models[genre+"ngram"]
 
-	print "generating "+genre+" lyrics..."
-	output_lyrics('generate-'+genre+'.txt')
+    print "generating "+genre+" lyrics..."
+    output_lyrics('generate-'+genre+'.txt')
+    return cached_models
 		
 if __name__=='__main__':
 	parser = argparse.ArgumentParser()
