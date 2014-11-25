@@ -30,9 +30,9 @@ class GUI(Frame):
 
         self.pack(fill=BOTH, expand=1)
 
-        quitButton = Button(self, text="Generate Lyrics",
-            command=self.generatelyrics)
-        quitButton.place(x=250, y=20)
+        self.generateButton = Button(self, text="Generate Lyrics",
+            command=self.generatelyrics,state = DISABLED)
+        self.generateButton.place(x=250, y=20)
 
         lb = Listbox(self)
         for i in self.OPTIONS:
@@ -49,10 +49,12 @@ class GUI(Frame):
         idx = sender.curselection()
         value = sender.get(idx)   
         self.genre.set(value)
+        self.generateButton['state'] = 'enabled'
 
     def generatelyrics(self):
         genre = self.genre.get()
         if genre is not None and len(genre)>0:
+
             filename = 'generate-'+self.genre.get()+'.txt'
             from multiprocessing.pool import ThreadPool
             pool = ThreadPool(processes=1)
@@ -72,11 +74,7 @@ class GUI(Frame):
                 text.pack(side="left", fill="both", expand=True)
                 text.place(x=20,y=200)
                 
-        else:  
-            tkMessageBox.showwarning(
-                "Cannot Process",
-                "Please select a Genre"
-            ) 
+        
 
 def main():
     root = Tk()
