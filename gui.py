@@ -5,6 +5,7 @@ from ttk import *
 import os
 import os.path
 from generator import nltk_process
+import tkMessageBox
 
 class GUI(Frame):
   
@@ -50,18 +51,36 @@ class GUI(Frame):
         self.genre.set(value)
 
     def generatelyrics(self):
-        filename = 'generate-'+self.genre.get()+'.txt'
-        self.cached_models = nltk_process(self.genre.get(), self.cached_models)
-        if os.path.exists(filename):
-            f = open(filename,'r')
-            self.lyrics = f.read()
-            text = text = Text(self.parent)
-            text.insert(END,self.lyrics)
-            text.place(x=20,y=200)
+        genre = self.genre.get()
+        if genre is not None and len(genre)>0:
+            filename = 'generate-'+self.genre.get()+'.txt'
+            from multiprocessing.pool import ThreadPool
+            pool = ThreadPool(processes=1)
+
+            async_result = pool.apply_async(nltk_process, (self.genre.get(), self.cached_models))
+            self.cached_models = async_result.get()
+
+
+            # self.cached_models = nltk_process(self.genre.get(), self.cached_models)
+            if os.path.exists(filename):
+                f = open(filename,'r')
+                self.lyrics = f.read()
+                text = Text(self.parent)
+                text.insert(END,self.lyrics)
+                text.height = 20
+                text.width = 60
+                text.pack(side="left", fill="both", expand=True)
+                text.place(x=20,y=200)
+                
+        else:  
+            tkMessageBox.showwarning(
+                "Cannot Process",
+                "Please select a Genre"
+            ) 
 
 def main():
     root = Tk()
-    root.geometry("500x500+500+500")
+    root.geometry("610x600+200+100")
     app = GUI(root)
     root.mainloop()
 
